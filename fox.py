@@ -54,7 +54,7 @@ block_size[0] = C_size[0]/iProcs
 block_size[1] = C_size[1]/jProcs
 
 # print(block_size)
-no_of_steps = length_of_matrices/block_size[0] # there will be an issue here if the blocks are not square
+no_of_steps = length_of_matrices/block_size[1] # there will be an issue here if the blocks are not square
 # print(length_of_matrices,no_of_steps)
 
 # doubt: are blocks always square?? Looks like it...
@@ -64,7 +64,7 @@ no_of_steps = length_of_matrices/block_size[0] # there will be an issue here if 
 # Sending Array A to the processors
 # First initialise a local A row for each processor
 # if (rank != 0):
-A_local_row = np.zeros((block_size[1],length_of_matrices),dtype='d')
+A_local_row = np.zeros((block_size[0],length_of_matrices),dtype='d')
 
 # this can be combined into the other if condition, but keeping it here for clarity
 
@@ -136,7 +136,7 @@ C_local_block = np.zeros((block_size[0],block_size[1]),dtype='d')
 A_row_start_index = (rank // iProcs)*block_size[0]
 A_row_end_index = A_row_start_index+block_size[1]
 # print A_row_start_index, A_row_end_index, rank
-A_local_block = A_local_row[np.ix_([0,block_size[0]-1],[A_row_start_index,A_row_end_index-1])]
+A_local_block = A_local_row[np.ix_([0,block_size[1]-1],[A_row_start_index,A_row_end_index-1])]
 # print A_local_block,rank
 # Note to self: use an object to store the start and end indices
 
@@ -167,6 +167,7 @@ def advance_B_blocks(current_block,block_size,nproc):
     return new_block
 
 for step_number in range(no_of_steps):
+    print(np.shape(A_local_block),np.shape(B_local_block))
     C_local_block = C_local_block + A_local_block.dot(B_local_block)
     # advance_A_blocks();
     A_row_start_index = (A_row_start_index + block_size[1]) % length_of_matrices
@@ -177,8 +178,22 @@ for step_number in range(no_of_steps):
     B_local_block = advance_B_blocks(B_local_block,block_size,nprocs);
 
 # print(C_local_block)
-# if (rank == 0):
-#     print(C_act)
+if (rank == 0):
+    print(C_act)
 
+if (rank != 0):
+    rank_tag = 300 + rank
+    world.Send([C_local_block,MPI.DOUBLE],dest=0,tag=rank_tag)
+else:
+    C[np.ix_([0,block_size[1]-1],[0,block_size[0]-1])] = C_local_block
+    for proc in range(1,nprocs):
+        # I,J is the left starting point of the big matrix C
+        rank_tag = 300 + proc
+        current_block = np.zeros((block_size[0],block_size[1]),dtype='d');
+        world.Recv([current_block,MPI.DOUBLE],source=proc,tag=rank_tag)
+        I = (proc//jProcs)*block_size[0]
+        J = (proc%jProcs)*block_size[1]
+        C[np.ix_([I,I+block_size[1]-1],[J,J+block_size[0]-1])] = current_block
+    print C
 
-print("Done",rank)
+# print("Done",rank)
