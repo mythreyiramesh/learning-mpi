@@ -13,8 +13,10 @@ def factors(num):
 def aspect_ratio_check(num,ar):
     min_ratio = 100000; # arbitrary large number
     facts = num;
+    flag = 0;
     if (ar>1):
         ar = 1/ar;
+        flag = 1;
     # print("need ar",ar)
     # print("min ratio diff",min_ratio)
     for i in range(2,int(sqrt(num))+1):
@@ -25,7 +27,11 @@ def aspect_ratio_check(num,ar):
                 min_ratio = abs((ar/ar1)-1);
                 facts = i;
                 # print("new min ratio",min_ratio,"with",facts,num/facts)
-    print(facts,(num/facts))
+    if flag == 1:
+        print((num/facts),facts)
+    else:
+        print(facts,(num/facts))
     return facts
 
-aspect_ratio_check(45,0.25)
+# dim = 16x16 * 16*4 = 16*4
+aspect_ratio_check(16,4)
