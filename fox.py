@@ -34,7 +34,7 @@ if (rank == 0):
         exit(1)
     else:
         length_of_matrices[0] = A_size[1]
-    # C_act = A.dot(B)
+    C_act = A.dot(B)
     # print("Actual Ans:")
     # print(C_act)
     C_size = np.array([A_size[0],B_size[1]],dtype='i')
@@ -48,6 +48,7 @@ else:
     world.Recv([length_of_matrices,MPI.INT],source=0)
 
 [iProcs,jProcs] = get_procs(C_size,nprocs);
+length_of_matrices = int(length_of_matrices)
 # print(iProcs,jProcs)
 block_size[0] = C_size[0]/iProcs
 block_size[1] = C_size[1]/jProcs
@@ -129,6 +130,7 @@ if (rank != 0):
 C_local_block = np.zeros((block_size[0],block_size[1]),dtype='d')
 
 # We have to initialise local A block
+# (MUST be modularised)
 # We can find start index by getting the quotient of the processor and iProcs
 # print A_local_row, rank
 A_row_start_index = (rank // iProcs)*block_size[0]
@@ -136,7 +138,47 @@ A_row_end_index = A_row_start_index+block_size[1]
 # print A_row_start_index, A_row_end_index, rank
 A_local_block = A_local_row[np.ix_([0,block_size[0]-1],[A_row_start_index,A_row_end_index-1])]
 # print A_local_block,rank
+# Note to self: use an object to store the start and end indices
 
 # Now the local blocks are initialised. We need to proceed to the stepping part of the algorithm
+
+# note: there are three rings here, hence, must be careful to not let the communication remain stalled! Must check!!
+def advance_B_blocks(current_block,block_size,nproc):
+    # note to self: use global block_size??
+    next_proc = (rank+jProcs) % nproc
+    prev_proc = (rank-jProcs) % nproc
+    # print "prev",prev_proc,"curr",rank,"next",next_proc
+
+    new_block = np.zeros((block_size[0],block_size[1]),dtype='d')
+    # if (rank%jProcs !=0):
+    #     world.Recv([new_block,MPI.DOUBLE],source=prev_proc,tag=3)
+    #     print(rank,'received from',prev_proc)
+    #     world.Send([current_block,MPI.DOUBLE],dest=next_proc,tag=3)
+    #     print(rank,'sent to',next_proc)
+    # else:
+    #     world.Send([current_block,MPI.DOUBLE],dest=next_proc,tag=3)
+    #     print(rank,'sent to',next_proc)
+    #     world.Recv([new_block,MPI.DOUBLE],source=prev_proc,tag=3)
+    #     print(rank,'received from',prev_proc)
+    world.Send([current_block,MPI.DOUBLE],dest=next_proc,tag=3)
+    # print(rank,'sent to',next_proc)
+    world.Recv([new_block,MPI.DOUBLE],source=prev_proc,tag=3)
+    # print(rank,'received from',prev_proc)
+    return new_block
+
+for step_number in range(no_of_steps):
+    C_local_block = C_local_block + A_local_block.dot(B_local_block)
+    # advance_A_blocks();
+    A_row_start_index = (A_row_start_index + block_size[1]) % length_of_matrices
+    A_row_end_index = (A_row_start_index + block_size[1]) % length_of_matrices
+    # a_dim = [0,block_size[0]; b_dim = [A_row_start_index,A_row_end_index-1] ;
+    # print a_dim,b_dim
+    A_local_block = A_local_row[np.ix_([0,block_size[0]-1],[A_row_start_index,A_row_end_index-1])]
+    B_local_block = advance_B_blocks(B_local_block,block_size,nprocs);
+
+# print(C_local_block)
+# if (rank == 0):
+#     print(C_act)
+
 
 print("Done",rank)
