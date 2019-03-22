@@ -26,7 +26,7 @@ length_of_matrices = np.array([1],dtype='i'); # something arbitrary
 
 if (rank == 0):
     # upper cap = 100, lower cap = -100
-    [A,B] = init_input_matrices(4,-10,10)
+    [A,B] = init_input_matrices(16,-10,10)
     A_size = np.shape(A);
     B_size = np.shape(B);
     if A_size[1] != B_size[0]:
@@ -95,7 +95,7 @@ if (rank != 0):
 # First initialise a local block B for each processor
 # if (rank != 0):
 B_local_block = np.zeros((block_size[0],block_size[1]),dtype='d')
-
+# print(np.shape(B_local_block),rank)
 # this can be combined into the other if condition, but keeping it here for clarity
 
 if (rank == 0):
@@ -107,19 +107,33 @@ if (rank == 0):
             # print("Sending to",proc_id)
             rank_tag = 200 + proc_id # this is arbitrary
             # doubt : since the start index and end index along the j dimension (therefore i) is always fixed as 0 and block_size[j], maybe it's just best to initialise as that or send B only from 0 to block_size[0]. NO NO BIG NO
-            i_start_index = (i)*block_size[0]
-            i_end_index = C_size[0]
-            j_start_index = (j)*block_size[1]
-            j_end_index = C_size[1]
-            if (i != iProcs-1):
-                i_end_index = (i+1)*block_size[0]
-            if (j != jProcs-1):
-                j_end_index = (j+1)*block_size[1]
+            # # OLD
+            # i_start_index = (i)*block_size[0]
+            # i_end_index = C_size[0]
+            # j_start_index = (j)*block_size[1]
+            # j_end_index = C_size[1]
+            # if (i != iProcs-1):
+            #     i_end_index = (i+1)*block_size[0]
+            # if (j != jProcs-1):
+            #     j_end_index = (j+1)*block_size[1]
+            # NEW
+            i_start_index = (proc_id//jProcs)*block_size[0]
+            j_start_index = (proc_id%jProcs)*block_size[1]
+            # print i_start_index
+            # print j_start_index
+            # print i_start_index+block_size[1]
+            # print j_start_index+block_size[0]
+            i_lim = np.arange(i_start_index,i_start_index+block_size[1])
+            j_lim = np.arange(j_start_index,j_start_index+block_size[0])
             # print B[np.ix_([i_start_index,i_end_index-1],[j_start_index,j_end_index-1])]
+            # print B[np.ix_(i_lim,j_lim)]
             if proc_id == 0:
-                B_local_block = B[np.ix_([i_start_index,i_end_index-1],[j_start_index,j_end_index-1])]
+                B_local_block = B[np.ix_(i_lim,j_lim)]
+                # print([i_start_index,i_end_index+1],[j_start_index,j_end_index+1])
+                # print B[np.ix_([i_start_index,i_end_index-1],[j_start_index,j_end_index-1])]
+                # print(np.shape(B_local_block))
             else:
-                world.Send([B[np.ix_([i_start_index,i_end_index-1],[j_start_index,j_end_index-1])],MPI.DOUBLE],dest=proc_id, tag=rank_tag)
+                world.Send([B[np.ix_(i_lim,j_lim)],MPI.DOUBLE],dest=proc_id, tag=rank_tag)
                 # print('Sent B',i_start_index,'to',i_end_index,'and',j_start_index,'to',j_end_index,'towards rank',proc_id)
 
 if (rank != 0):
@@ -136,13 +150,16 @@ C_local_block = np.zeros((block_size[0],block_size[1]),dtype='d')
 A_row_start_index = (rank // iProcs)*block_size[0]
 A_row_end_index = A_row_start_index+block_size[1]
 # print A_row_start_index, A_row_end_index, rank
-A_local_block = A_local_row[np.ix_([0,block_size[1]-1],[A_row_start_index,A_row_end_index-1])]
+i_lim = np.arange(0,block_size[1])
+j_lim = np.arange(A_row_start_index,A_row_end_index)
+A_local_block = A_local_row[np.ix_(i_lim,j_lim)]
 # print A_local_block,rank
 # Note to self: use an object to store the start and end indices
-
+# print(np.shape(A_local_block),np.shape(B_local_block),rank)
 # Now the local blocks are initialised. We need to proceed to the stepping part of the algorithm
 
 # note: there are three rings here, hence, must be careful to not let the communication remain stalled! Must check!!
+#####
 def advance_B_blocks(current_block,block_size,nproc):
     # note to self: use global block_size??
     next_proc = (rank+jProcs) % nproc
@@ -167,25 +184,33 @@ def advance_B_blocks(current_block,block_size,nproc):
     return new_block
 
 for step_number in range(no_of_steps):
-    print(np.shape(A_local_block),np.shape(B_local_block))
+    # print(np.shape(A_local_block),np.shape(B_local_block),rank)
     C_local_block = C_local_block + A_local_block.dot(B_local_block)
     # advance_A_blocks();
     A_row_start_index = (A_row_start_index + block_size[1]) % length_of_matrices
     A_row_end_index = (A_row_start_index + block_size[1]) % length_of_matrices
-    # a_dim = [0,block_size[0]; b_dim = [A_row_start_index,A_row_end_index-1] ;
+    # print A_row_end_index
+    if A_row_end_index == 0:
+        A_row_end_index = length_of_matrices
+    a_dim = np.arange(0,block_size[0]);
+    b_dim = np.arange(A_row_start_index,A_row_end_index) ;
+    # if b_dim.any() == 0:
+    #     print(rank,step_number,A_row_start_index)
     # print a_dim,b_dim
-    A_local_block = A_local_row[np.ix_([0,block_size[0]-1],[A_row_start_index,A_row_end_index-1])]
+    # A_local_block = A_local_row[np.ix_([0,block_size[0]-1],[A_row_start_index,A_row_end_index-1])]
+    A_local_block = A_local_row[np.ix_(a_dim,b_dim)]
     B_local_block = advance_B_blocks(B_local_block,block_size,nprocs);
 
 # print(C_local_block)
-if (rank == 0):
-    print(C_act)
+
 
 if (rank != 0):
     rank_tag = 300 + rank
     world.Send([C_local_block,MPI.DOUBLE],dest=0,tag=rank_tag)
 else:
-    C[np.ix_([0,block_size[1]-1],[0,block_size[0]-1])] = C_local_block
+    i_lim = np.arange(0,block_size[1])
+    j_lim = np.arange(0,block_size[0])
+    C[np.ix_(i_lim,j_lim)] = C_local_block
     for proc in range(1,nprocs):
         # I,J is the left starting point of the big matrix C
         rank_tag = 300 + proc
@@ -193,7 +218,13 @@ else:
         world.Recv([current_block,MPI.DOUBLE],source=proc,tag=rank_tag)
         I = (proc//jProcs)*block_size[0]
         J = (proc%jProcs)*block_size[1]
-        C[np.ix_([I,I+block_size[1]-1],[J,J+block_size[0]-1])] = current_block
+        i_lim = np.arange(I,I+block_size[1])
+        j_lim = np.arange(J,J+block_size[0])
+        C[np.ix_(i_lim,j_lim)] = current_block
     print C
 
-# print("Done",rank)
+if (rank == 0):
+    print(C_act)
+    print(np.amax(np.abs(C-C_act)))
+#####
+print("Done",rank)
