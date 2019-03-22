@@ -62,8 +62,8 @@ no_of_steps = length_of_matrices/block_size[0] # there will be an issue here if 
 
 # Sending Array A to the processors
 # First initialise a local A row for each processor
-if (rank != 0):
-    A_local_row = np.zeros((block_size[1],length_of_matrices),dtype='d')
+# if (rank != 0):
+A_local_row = np.zeros((block_size[1],length_of_matrices),dtype='d')
 
 # this can be combined into the other if condition, but keeping it here for clarity
 
@@ -73,8 +73,6 @@ if (rank == 0):
     for i in range(0,jProcs): # is it iProcs or jProcs?
         for j in range(0,iProcs):
             proc_id = i*(iProcs)+j
-            if proc_id == 0:
-                continue;
             # print("Sending to",proc_id)
             rank_tag = 100 + proc_id # this is arbitrary
             start_index = (i)*block_size[0]
@@ -82,7 +80,10 @@ if (rank == 0):
             if (i != jProcs-1):
                 end_index = (i+1)*block_size[0]
 
-            world.Send([A[start_index:end_index][:],MPI.DOUBLE],dest=proc_id, tag=rank_tag)
+            if proc_id == 0:
+                A_local_row = A[start_index:end_index][:]
+            else:
+                world.Send([A[start_index:end_index][:],MPI.DOUBLE],dest=proc_id, tag=rank_tag)
             # print('Sent A',start_index,'to',end_index,'towards rank',proc_id)
 
 if (rank != 0):
@@ -91,20 +92,18 @@ if (rank != 0):
 
 # Sending Array B to the processors
 # First initialise a local block B for each processor
-if (rank != 0):
-    B_local_block = np.zeros((block_size[0],block_size[1]),dtype='d')
+# if (rank != 0):
+B_local_block = np.zeros((block_size[0],block_size[1]),dtype='d')
 
 # this can be combined into the other if condition, but keeping it here for clarity
 
 if (rank == 0):
-    print(B)
+    # print(B)
     # print(np.shape(B))
     for i in range(0,jProcs): # is it iProcs or jProcs?
         for j in range(0,iProcs):
             proc_id = i*(iProcs)+j
-            if proc_id == 0:
-                continue;
-            print("Sending to",proc_id)
+            # print("Sending to",proc_id)
             rank_tag = 200 + proc_id # this is arbitrary
             # doubt : since the start index and end index along the j dimension (therefore i) is always fixed as 0 and block_size[j], maybe it's just best to initialise as that or send B only from 0 to block_size[0]. NO NO BIG NO
             i_start_index = (i)*block_size[0]
@@ -116,11 +115,28 @@ if (rank == 0):
             if (j != jProcs-1):
                 j_end_index = (j+1)*block_size[1]
             # print B[np.ix_([i_start_index,i_end_index-1],[j_start_index,j_end_index-1])]
-            world.Send([B[np.ix_([i_start_index,i_end_index-1],[j_start_index,j_end_index-1])],MPI.DOUBLE],dest=proc_id, tag=rank_tag)
-            print('Sent B',i_start_index,'to',i_end_index,'and',j_start_index,'to',j_end_index,'towards rank',proc_id)
+            if proc_id == 0:
+                B_local_block = B[np.ix_([i_start_index,i_end_index-1],[j_start_index,j_end_index-1])]
+            else:
+                world.Send([B[np.ix_([i_start_index,i_end_index-1],[j_start_index,j_end_index-1])],MPI.DOUBLE],dest=proc_id, tag=rank_tag)
+                # print('Sent B',i_start_index,'to',i_end_index,'and',j_start_index,'to',j_end_index,'towards rank',proc_id)
 
 if (rank != 0):
     world.Recv([B_local_block,MPI.DOUBLE],source=0,tag=(200+rank))
-    print(rank,'received B',B_local_block,'from',0)
+    # print(rank,'received B',B_local_block,'from',0)
+
+# We don't have to do anything with C because we're going to write to only a particular value of C in each processor
+C_local_block = np.zeros((block_size[0],block_size[1]),dtype='d')
+
+# We have to initialise local A block
+# We can find start index by getting the quotient of the processor and iProcs
+# print A_local_row, rank
+A_row_start_index = (rank // iProcs)*block_size[0]
+A_row_end_index = A_row_start_index+block_size[1]
+# print A_row_start_index, A_row_end_index, rank
+A_local_block = A_local_row[np.ix_([0,block_size[0]-1],[A_row_start_index,A_row_end_index-1])]
+# print A_local_block,rank
+
+# Now the local blocks are initialised. We need to proceed to the stepping part of the algorithm
 
 print("Done",rank)
