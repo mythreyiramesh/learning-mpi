@@ -17,7 +17,7 @@ C_block_size = np.array([0, 0],dtype='i') # something arbitrary
 length_of_matrices = np.array([1],dtype='i'); # something arbitrary
 
 if (rank == 0):
-    [A,B] = init_input_matrices([4,4],[4,4],0,10)
+    [A,B] = init_input_matrices([4,8],[8,16],-100,100)
     # print A
     # print B
     A_size = np.shape(A);
@@ -146,53 +146,31 @@ B_local_block=refresh_B_block(rank,jProcs,B_block_size,B_local_col);
 
 for step_number in range(no_of_steps):
     C_local_block = C_local_block + A_local_block.dot(B_local_block)
-    # print A_local_row,rank
     A_local_row=np.roll(A_local_row,-1*int(A_block_size[1]),axis=1)
-    # print A_local_row,rank
     B_local_col=np.roll(B_local_col,-1*int(B_block_size[0]),axis=0)
     A_local_block = refresh_A_block(rank,jProcs,A_block_size,A_local_row);
     B_local_block = refresh_B_block(rank,jProcs,B_block_size,B_local_col);
-    # print A_local_block,rank,"A"
-    # print B_local_block,rank,"B"
-    if (rank != 0):
-        rank_tag = ((step_number+2)*100) + rank
-        world.Send([C_local_block,MPI.DOUBLE],dest=0,tag=rank_tag)
-    else:
-        i_lim = np.arange(0,C_block_size[0])
-        j_lim = np.arange(0,C_block_size[1])
-        C[np.ix_(i_lim,j_lim)] = C_local_block
-        for proc in range(1,nProcs):
-            # I,J is the left starting point of the big matrix C
-            rank_tag = ((step_number+2)*100) + proc
-            current_block = np.zeros((C_block_size[0],C_block_size[1]),dtype='d');
-            world.Recv([current_block,MPI.DOUBLE],source=proc,tag=rank_tag)
-            I = (proc//jProcs)*C_block_size[0]
-            J = (proc%jProcs)*C_block_size[1]
-            i_lim = np.arange(I,I+C_block_size[0])
-            j_lim = np.arange(J,J+C_block_size[1])
-            C[np.ix_(i_lim,j_lim)] = current_block
-        print(step_number,"c_calc",C)
 
 # print(C_local_block)
 
-# if (rank != 0):
-#     rank_tag = 300 + rank
-#     world.Send([C_local_block,MPI.DOUBLE],dest=0,tag=rank_tag)
-# else:
-#     i_lim = np.arange(0,C_block_size[0])
-#     j_lim = np.arange(0,C_block_size[1])
-#     C[np.ix_(i_lim,j_lim)] = C_local_block
-#     for proc in range(1,nProcs):
-#         # I,J is the left starting point of the big matrix C
-#         rank_tag = 300 + proc
-#         current_block = np.zeros((C_block_size[0],C_block_size[1]),dtype='d');
-#         world.Recv([current_block,MPI.DOUBLE],source=proc,tag=rank_tag)
-#         I = (proc//jProcs)*C_block_size[0]
-#         J = (proc%jProcs)*C_block_size[1]
-#         i_lim = np.arange(I,I+C_block_size[0])
-#         j_lim = np.arange(J,J+C_block_size[1])
-#         C[np.ix_(i_lim,j_lim)] = current_block
-#     print("c_calc",C)
+if (rank != 0):
+    rank_tag = 300 + rank
+    world.Send([C_local_block,MPI.DOUBLE],dest=0,tag=rank_tag)
+else:
+    i_lim = np.arange(0,C_block_size[0])
+    j_lim = np.arange(0,C_block_size[1])
+    C[np.ix_(i_lim,j_lim)] = C_local_block
+    for proc in range(1,nProcs):
+        # I,J is the left starting point of the big matrix C
+        rank_tag = 300 + proc
+        current_block = np.zeros((C_block_size[0],C_block_size[1]),dtype='d');
+        world.Recv([current_block,MPI.DOUBLE],source=proc,tag=rank_tag)
+        I = (proc//jProcs)*C_block_size[0]
+        J = (proc%jProcs)*C_block_size[1]
+        i_lim = np.arange(I,I+C_block_size[0])
+        j_lim = np.arange(J,J+C_block_size[1])
+        C[np.ix_(i_lim,j_lim)] = current_block
+    print("c_calc",C)
 
 if (rank == 0):
     print("c_act",C_act)
