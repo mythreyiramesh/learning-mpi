@@ -8,8 +8,8 @@ def init_input_matrices1(size1,size2,low,up):
 
 def init_input_matrices(size1,size2,low,up):
     n = 4;
-    A = np.arange(n).reshape(sqrt(n),sqrt(n))
-    B = np.arange(n).reshape(sqrt(n),sqrt(n))
+    A = np.arange(n,dtype='d').reshape(sqrt(n),sqrt(n))
+    B = np.arange(n,dtype='d').reshape(sqrt(n),sqrt(n))
     return A,B
 
 def get_procs1(C_size,nprocs):
