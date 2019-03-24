@@ -105,29 +105,33 @@ if (rank != 0):
 # Sending Array B to the processors
 # First initialise a local block B for each processor
 
-B_local_col = np.zeros((length_of_matrices,B_block_size[1]),dtype='d')
+B_local_block = np.zeros((B_block_size[0],B_block_size[1]),dtype='d')
 
 if (rank == 0):
     for proc_id in range(nProcs):
         rank_tag = 200 + proc_id
+        rowblock_to_send = proc_id//jProcs
         colblock_to_send = proc_id%jProcs
+        i_start_index = rowblock_to_send*B_block_size[0]
+        i_end_index = length_of_matrices
+        if(rowblock_to_send != iProcs-1):
+            i_end_index = i_start_index+B_block_size[0]
         j_start_index = colblock_to_send*B_block_size[1]
         j_end_index = C_size[1]
         if(colblock_to_send != jProcs-1):
             j_end_index = j_start_index+B_block_size[1]
         j_lim = np.arange(j_start_index,j_end_index,dtype='i')
-        i_lim = np.arange(length_of_matrices,dtype='i')
+        i_lim = np.arange(i_start_index,i_end_index,dtype='i')
         if proc_id == 0:
-            B_local_col = B[np.ix_(i_lim,j_lim)]
+            B_local_block = B[np.ix_(i_lim,j_lim)]
         else:
             world.Send([B[np.ix_(i_lim,j_lim)],MPI.DOUBLE],dest=proc_id, tag=rank_tag)
 
 if (rank != 0):
-    world.Recv([B_local_col,MPI.DOUBLE],source=0,tag=(200+rank))
+    world.Recv([B_local_block,MPI.DOUBLE],source=0,tag=(200+rank))
 
 # We don't have to do anything with C because we're going to write to only a particular value of C in each processor
 C_local_block = np.zeros((C_block_size[0],C_block_size[1]),dtype='d')
-
 
 # We have to initialise local A block
 
@@ -140,28 +144,23 @@ def refresh_A_block(rank,jProcs,A_block_size,A_local_row):
     A_local_block = A_local_row[np.ix_(i_lim,j_lim)]
     return A_local_block
 
-def refresh_B_block(rank,jProcs,B_block_size,B_local_col):
-    B_block_number = rank//jProcs # seems weird
-    # print "BBlock",B_local_col,"Rank",rank
-    # print "Bblockno",B_block_number,"rank",rank
-    i_start_index = B_block_number*B_block_size[0]
-    i_end_index = i_start_index+B_block_size[0]
-    i_lim = np.arange(i_start_index,i_end_index,dtype='i')
-    j_lim = np.arange(B_block_size[1],dtype='i')
-    B_local_block = B_local_col[np.ix_(i_lim,j_lim)]
-    return B_local_block
-
 A_local_block=refresh_A_block(rank,jProcs,A_block_size,A_local_row);
-B_local_block=refresh_B_block(rank,jProcs,B_block_size,B_local_col);
 
 # Now the local blocks are initialised. We need to proceed to the stepping part of the algorithm
+
+def advance_B_blocks(rank,jProcs,nProcs,B_block_size,current_block):
+    next_proc = (rank+jProcs) % nProcs
+    prev_proc = (rank-jProcs) % nProcs
+    new_block = np.zeros((B_block_size[0],B_block_size[1]),dtype='d')
+    world.Send([current_block,MPI.DOUBLE],dest=next_proc,tag=3)
+    world.Recv([new_block,MPI.DOUBLE],source=prev_proc,tag=3)
+    return new_block
 
 for step_number in range(no_of_steps):
     C_local_block = C_local_block + A_local_block.dot(B_local_block)
     A_local_row=np.roll(A_local_row,-1*int(A_block_size[1]),axis=1)
-    B_local_col=np.roll(B_local_col,-1*int(B_block_size[0]),axis=0)
     A_local_block = refresh_A_block(rank,jProcs,A_block_size,A_local_row);
-    B_local_block = refresh_B_block(rank,jProcs,B_block_size,B_local_col);
+    B_local_block = advance_B_blocks(rank,jProcs,nProcs,B_block_size,B_local_block);
 
 # print(C_local_block)
 
