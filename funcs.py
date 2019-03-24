@@ -1,9 +1,9 @@
 import numpy as np
 from math import sqrt,floor
 
-def init_input_matrices(size,low,up):
-    A = (np.random.rand(size,size)*(up-low)) + low;
-    B = (np.random.rand(size,size)*(up-low)) + low;
+def init_input_matrices(size1,size2,low,up):
+    A = (np.random.rand(size1[0],size1[1])*(up-low)) + low;
+    B = (np.random.rand(size2[0],size2[1])*(up-low)) + low;
     return A,B
 
 def get_procs1(C_size,nprocs):
@@ -31,10 +31,10 @@ def get_procs(C_size,num):
                 facts = i;
                 # print("new min ratio",min_ratio,"with",facts,num/facts)
     if flag == 1:
-        print((num/facts),facts)
+        # print((num/facts),facts)
         return (num/facts),facts
     else:
-        print(facts,(num/facts))
+        # print(facts,(num/facts))
         return facts,(num/facts)
 
 # def mult_block(A,B):
