@@ -101,6 +101,7 @@ B_block_size[0] = A_block_size[1]
 # First initialise a local A row for each processor
 # if (rank != 0):
 A_local_row = np.zeros((A_block_size[0],length_of_matrices),dtype='d')
+# print(A_local_row,"A initialised at rank",rank)
 
 # this can be combined into the other if condition, but keeping it here for clarity
 
@@ -134,13 +135,20 @@ if (rank == 0):
             i_end_index = i_start_index+A_block_size[0]
         i_lim = np.arange(i_start_index,i_end_index,dtype='i')
         j_lim = np.arange(length_of_matrices,dtype='i')
+        # TEST = np.array([10],dtype='d'); test_tag = 400+proc_id;
         if proc_id == 0:
             A_local_row = A[np.ix_(i_lim,j_lim)]
         else:
             world.Send([A[np.ix_(i_lim,j_lim)],MPI.DOUBLE],dest=proc_id, tag=rank_tag)
+            # world.Send([TEST,MPI.DOUBLE],dest=proc_id,tag=test_tag)
+            print("Sending to processor",proc_id,"row",A[np.ix_(i_lim,j_lim)])
 
+# tt = np.array([0],dtype='d')
 if (rank != 0):
     world.Recv([A_local_row,MPI.DOUBLE],source=0,tag=(100+rank))
+    # world.Recv([tt,MPI.DOUBLE],source=0,tag=(400+rank))
+    print("Received at processor",rank,"row",A_local_row)
+    p# rint("Received at processor",rank,"row",tt)
     # print(rank,'received A',A_local_row,'from',0)
 
 
@@ -233,9 +241,11 @@ if (rank == 0):
             # print("B_col_size to be sent",np.shape(B[np.ix_(i_lim,j_lim)]))
         else:
             world.Send([B[np.ix_(i_lim,j_lim)],MPI.DOUBLE],dest=proc_id, tag=rank_tag)
+            print("Sending to processor",proc_id,"col",B[np.ix_(i_lim,j_lim)])
 
 if (rank != 0):
     world.Recv([B_local_col,MPI.DOUBLE],source=0,tag=(200+rank))
+    print("Received at processor",rank,"col",B_local_col)
 
 # We don't have to do anything with C because we're going to write to only a particular value of C in each processor
 C_local_block = np.zeros((C_block_size[0],C_block_size[1]),dtype='d')
@@ -254,7 +264,7 @@ C_local_block = np.zeros((C_block_size[0],C_block_size[1]),dtype='d')
 # A_local_block = A_local_row[np.ix_(i_lim,j_lim)]
 # # print A_local_block,rank
 # NEW
-def refresh_A_block():
+def refresh_A_block(rank,jProcs,A_block_size,A_local_row):
     A_block_number = rank//jProcs
     i_lim = np.arange(A_block_size[0],dtype='i')
     j_start_index = A_block_number*A_block_size[1]
@@ -265,7 +275,7 @@ def refresh_A_block():
 # Note to self: use an object to store the start and end indices
 # print(np.shape(A_local_block),np.shape(B_local_block),rank)
 
-def refresh_B_block():
+def refresh_B_block(rank,jProcs,B_block_size,B_local_col):
     B_block_number = rank%jProcs
     i_start_index = B_block_number*B_block_size[0]
     i_end_index = i_start_index+B_block_size[0]
@@ -274,8 +284,8 @@ def refresh_B_block():
     B_local_block = B_local_col[np.ix_(i_lim,j_lim)]
     return B_local_block
 
-A_local_block=refresh_A_block();
-B_local_block=refresh_B_block();
+A_local_block=refresh_A_block(rank,jProcs,A_block_size,A_local_row);
+B_local_block=refresh_B_block(rank,jProcs,B_block_size,B_local_col);
 
 # Now the local blocks are initialised. We need to proceed to the stepping part of the algorithm
 
@@ -305,8 +315,12 @@ B_local_block=refresh_B_block();
 #     # print(rank,'received from',prev_proc)
 #     return new_block
 
+print("A local row at rank",rank,"before",A_local_row)
+print("B local col at rank",rank,"before",B_local_col)
+
 for step_number in range(no_of_steps):
     # print(np.shape(A_local_block),np.shape(B_local_block),rank)
+    print("multiplying",A_local_block,"and",B_local_block,"at rank",rank,"at step",step_number)
     C_local_block = C_local_block + A_local_block.dot(B_local_block)
     # advance_A_blocks();
     # Use roll() to make it better!
@@ -325,8 +339,12 @@ for step_number in range(no_of_steps):
     # B_local_block = advance_B_blocks(B_local_block,C_block_size,nProcs);
     np.roll(A_local_row,-1*int(A_block_size[1]),axis=0)
     np.roll(B_local_col,-1*int(B_block_size[0]),axis=1)
-    A_local_block = refresh_A_block();
-    B_local_block = refresh_B_block();
+    A_local_block = refresh_A_block(rank,jProcs,A_block_size,A_local_row);
+    B_local_block = refresh_B_block(rank,jProcs,B_block_size,B_local_col);
+    print("A local row rolled",step_number+1,"times by rank",rank,A_local_row)
+    print("B local col rolled",step_number+1,"times by rank",rank,B_local_col)
+    # print(C_local_block,"rank",rank)
+    # raw_input("waiting at %d" % rank)
 
 # print(C_local_block)
 

@@ -1,9 +1,15 @@
 import numpy as np
 from math import sqrt,floor
 
-def init_input_matrices(size1,size2,low,up):
+def init_input_matrices1(size1,size2,low,up):
     A = (np.random.rand(size1[0],size1[1])*(up-low)) + low;
     B = (np.random.rand(size2[0],size2[1])*(up-low)) + low;
+    return A,B
+
+def init_input_matrices(size1,size2,low,up):
+    n = 4;
+    A = np.arange(n).reshape(sqrt(n),sqrt(n))
+    B = np.arange(n).reshape(sqrt(n),sqrt(n))
     return A,B
 
 def get_procs1(C_size,nprocs):
