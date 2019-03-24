@@ -18,8 +18,8 @@ length_of_matrices = np.array([1],dtype='i'); # something arbitrary
 
 if (rank == 0):
     [A,B] = init_input_matrices([4,4],[4,4],0,10)
-    print A
-    print B
+    # print A
+    # print B
     A_size = np.shape(A);
     B_size = np.shape(B);
     if A_size[1] != B_size[0]:
@@ -74,7 +74,7 @@ A_local_row = np.zeros((A_block_size[0],length_of_matrices),dtype='d')
 
 if (rank == 0):
     for proc_id in range(nProcs):
-        rank_tag = 500 + proc_id
+        rank_tag = 100 + proc_id
         rowblock_to_send = proc_id//jProcs
         i_start_index = rowblock_to_send*A_block_size[0]
         i_end_index = C_size[0]
@@ -88,7 +88,7 @@ if (rank == 0):
             world.Send([A[np.ix_(i_lim,j_lim)],MPI.DOUBLE],dest=proc_id, tag=rank_tag)
 
 if (rank != 0):
-    world.Recv([A_local_row,MPI.DOUBLE],source=0,tag=(500+rank))
+    world.Recv([A_local_row,MPI.DOUBLE],source=0,tag=(100+rank))
 
 # Sending Array B to the processors
 # First initialise a local block B for each processor
@@ -142,55 +142,39 @@ def refresh_B_block(rank,jProcs,B_block_size,B_local_col):
 A_local_block=refresh_A_block(rank,jProcs,A_block_size,A_local_row);
 B_local_block=refresh_B_block(rank,jProcs,B_block_size,B_local_col);
 
-# print rank,A_local_block,B_local_block
-
 # Now the local blocks are initialised. We need to proceed to the stepping part of the algorithm
 
-# print("A local row at rank",rank,"before",A_local_row)
-# print("B local col at rank",rank,"before",B_local_col)
-
 for step_number in range(no_of_steps):
-    # print(np.shape(A_local_block),np.shape(B_local_block),rank)
-    # print("multiplying",A_local_block,"and",B_local_block,"at rank",rank,"at step",step_number)
     C_local_block = C_local_block + A_local_block.dot(B_local_block)
-    # advance_A_blocks();
-    # Use roll() to make it better!
-    # A_row_start_index = (A_row_start_index + C_block_size[1]) % length_of_matrices
-    # A_row_end_index = (A_row_start_index + C_block_size[1]) % length_of_matrices
-    # print A_row_end_index
-    # if A_row_end_index == 0:
-    #     A_row_end_index = length_of_matrices
-    # a_dim = np.arange(0,C_block_size[0]);
-    # b_dim = np.arange(A_row_start_index,A_row_end_index) ;
-    # if b_dim.any() == 0:
-    #     print(rank,step_number,A_row_start_index)
-    # print a_dim,b_dim
-    # A_local_block = A_local_row[np.ix_([0,C_block_size[0]-1],[A_row_start_index,A_row_end_index-1])]
-    # A_local_block = A_local_row[np.ix_(a_dim,b_dim)]
-    # B_local_block = advance_B_blocks(B_local_block,C_block_size,nProcs);
-    # dd = np.arange(4,dtype='d');
-    # print(dd)
-    # np.roll(dd,-1,axis=0)
-    # print(np.roll(dd,-1,axis=0))
-    # print A_local_row
-    # print -1*int(A_block_size[1])
-    A_local_row[0]=np.roll(A_local_row[0],-1*int(A_block_size[1]),axis=0)
-    # print np.roll(A_local_row[0],-1*int(A_block_size[1]),axis=0)
-    # print B_local_col
-    # print np.roll(B_local_col,-1,axis=0)
-    # print np.roll(B_local_col[0],-1*int(B_block_size[0]),axis=0)
+    # print A_local_row,rank
+    A_local_row=np.roll(A_local_row,-1*int(A_block_size[1]),axis=1)
+    # print A_local_row,rank
     B_local_col=np.roll(B_local_col,-1*int(B_block_size[0]),axis=0)
-    # print(np.roll(A_local_row,-1,axis=0),rank)
     A_local_block = refresh_A_block(rank,jProcs,A_block_size,A_local_row);
     B_local_block = refresh_B_block(rank,jProcs,B_block_size,B_local_col);
-    # print("A local row rolled",step_number+1,"times by rank",rank,A_local_row)
-    # print("B local col rolled",step_number+1,"times by rank",rank,B_local_col)
-    # print(C_local_block,"rank",rank)
-    # raw_input("waiting at %d" % rank)
+    # print A_local_block,rank,"A"
+    # print B_local_block,rank,"B"
+    if (rank != 0):
+        rank_tag = ((step_number+2)*100) + rank
+        world.Send([C_local_block,MPI.DOUBLE],dest=0,tag=rank_tag)
+    else:
+        i_lim = np.arange(0,C_block_size[0])
+        j_lim = np.arange(0,C_block_size[1])
+        C[np.ix_(i_lim,j_lim)] = C_local_block
+        for proc in range(1,nProcs):
+            # I,J is the left starting point of the big matrix C
+            rank_tag = ((step_number+2)*100) + proc
+            current_block = np.zeros((C_block_size[0],C_block_size[1]),dtype='d');
+            world.Recv([current_block,MPI.DOUBLE],source=proc,tag=rank_tag)
+            I = (proc//jProcs)*C_block_size[0]
+            J = (proc%jProcs)*C_block_size[1]
+            i_lim = np.arange(I,I+C_block_size[0])
+            j_lim = np.arange(J,J+C_block_size[1])
+            C[np.ix_(i_lim,j_lim)] = current_block
+        print(step_number,"c_calc",C)
 
-print(C_local_block)
+# print(C_local_block)
 
-########
 # if (rank != 0):
 #     rank_tag = 300 + rank
 #     world.Send([C_local_block,MPI.DOUBLE],dest=0,tag=rank_tag)
@@ -209,10 +193,9 @@ print(C_local_block)
 #         j_lim = np.arange(J,J+C_block_size[1])
 #         C[np.ix_(i_lim,j_lim)] = current_block
 #     print("c_calc",C)
-#
-# if (rank == 0):
-#     print("c_act",C_act)
-#     print(np.amax(np.abs(C-C_act)))
-# #####
-########
+
+if (rank == 0):
+    print("c_act",C_act)
+    print(np.amax(np.abs(C-C_act)))
+
 print("Done",rank)

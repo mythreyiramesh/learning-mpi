@@ -7,7 +7,7 @@ def init_input_matrices1(size1,size2,low,up):
     return A,B
 
 def init_input_matrices(size1,size2,low,up):
-    n = 4;
+    n = 16;
     A = np.arange(n,dtype='d').reshape(sqrt(n),sqrt(n))
     B = np.arange(n,dtype='d').reshape(sqrt(n),sqrt(n))
     return A,B
