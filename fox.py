@@ -18,6 +18,8 @@ length_of_matrices = np.array([1],dtype='i'); # something arbitrary
 
 if (rank == 0):
     [A,B] = init_input_matrices([4,4],[4,4],0,10)
+    print A
+    print B
     A_size = np.shape(A);
     B_size = np.shape(B);
     if A_size[1] != B_size[0]:
@@ -107,53 +109,41 @@ if (rank == 0):
             B_local_col = B[np.ix_(i_lim,j_lim)]
         else:
             world.Send([B[np.ix_(i_lim,j_lim)],MPI.DOUBLE],dest=proc_id, tag=rank_tag)
-            print("Sending to processor",proc_id,"col",B[np.ix_(i_lim,j_lim)])
 
 if (rank != 0):
     world.Recv([B_local_col,MPI.DOUBLE],source=0,tag=(200+rank))
-    print("Received at processor",rank,"col",B_local_col)
 
 # We don't have to do anything with C because we're going to write to only a particular value of C in each processor
 C_local_block = np.zeros((C_block_size[0],C_block_size[1]),dtype='d')
 
+
+# We have to initialise local A block
+
+def refresh_A_block(rank,jProcs,A_block_size,A_local_row):
+    A_block_number = rank//jProcs
+    i_lim = np.arange(A_block_size[0],dtype='i')
+    j_start_index = A_block_number*A_block_size[1]
+    j_end_index = j_start_index+A_block_size[1]
+    j_lim = np.arange(j_start_index,j_end_index,dtype='i')
+    A_local_block = A_local_row[np.ix_(i_lim,j_lim)]
+    return A_local_block
+
+def refresh_B_block(rank,jProcs,B_block_size,B_local_col):
+    B_block_number = rank//jProcs # seems weird
+    # print "BBlock",B_local_col,"Rank",rank
+    # print "Bblockno",B_block_number,"rank",rank
+    i_start_index = B_block_number*B_block_size[0]
+    i_end_index = i_start_index+B_block_size[0]
+    i_lim = np.arange(i_start_index,i_end_index,dtype='i')
+    j_lim = np.arange(B_block_size[1],dtype='i')
+    B_local_block = B_local_col[np.ix_(i_lim,j_lim)]
+    return B_local_block
+
+A_local_block=refresh_A_block(rank,jProcs,A_block_size,A_local_row);
+B_local_block=refresh_B_block(rank,jProcs,B_block_size,B_local_col);
+
+print rank,A_local_block,B_local_block
 ########
-# # We have to initialise local A block
-#
-# # # OLD
-# # # (MUST be modularised)
-# # # We can find start index by getting the quotient of the processor and iProcs
-# # # print A_local_row, rank
-# # A_row_start_index = (rank // iProcs)*C_block_size[0]
-# # A_row_end_index = A_row_start_index+C_block_size[1]
-# # # print A_row_start_index, A_row_end_index, rank
-# # i_lim = np.arange(0,C_block_size[1])
-# # j_lim = np.arange(A_row_start_index,A_row_end_index)
-# # A_local_block = A_local_row[np.ix_(i_lim,j_lim)]
-# # # print A_local_block,rank
-# # NEW
-# def refresh_A_block(rank,jProcs,A_block_size,A_local_row):
-#     A_block_number = rank//jProcs
-#     i_lim = np.arange(A_block_size[0],dtype='i')
-#     j_start_index = A_block_number*A_block_size[1]
-#     j_end_index = j_start_index+A_block_size[1]
-#     j_lim = np.arange(j_start_index,j_end_index,dtype='i')
-#     A_local_block = A_local_row[np.ix_(i_lim,j_lim)]
-#     return A_local_block
-# # Note to self: use an object to store the start and end indices
-# # print(np.shape(A_local_block),np.shape(B_local_block),rank)
-#
-# def refresh_B_block(rank,jProcs,B_block_size,B_local_col):
-#     B_block_number = rank%jProcs
-#     i_start_index = B_block_number*B_block_size[0]
-#     i_end_index = i_start_index+B_block_size[0]
-#     i_lim = np.arange(i_start_index,i_end_index,dtype='i')
-#     j_lim = np.arange(B_block_size[1],dtype='i')
-#     B_local_block = B_local_col[np.ix_(i_lim,j_lim)]
-#     return B_local_block
-#
-# A_local_block=refresh_A_block(rank,jProcs,A_block_size,A_local_row);
-# B_local_block=refresh_B_block(rank,jProcs,B_block_size,B_local_col);
-#
 # # Now the local blocks are initialised. We need to proceed to the stepping part of the algorithm
 #
 # # # OLD
