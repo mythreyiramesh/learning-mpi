@@ -17,7 +17,7 @@ C_block_size = np.array([0, 0],dtype='i') # something arbitrary
 length_of_matrices = np.array([1],dtype='i'); # something arbitrary
 
 if (rank == 0):
-    [A,B] = init_input_matrices([4,8],[8,16],-100,100)
+    [A,B] = init_input_matrices([4,16],[16,8],-10,10)
     # print A
     # print B
     A_size = np.shape(A);
@@ -49,11 +49,11 @@ B_block_size[1] = C_block_size[1]
 # By rules of matrix product, A_block_size[1] must always equal B_block_size[0]. This value can be anything! Probably must be optimised based on number of processors, length_of_matrices etc... For now, pick it to be such that at least one of the blocks are going to be square. But this is arbitrary.
 
 no_of_steps = 1; # arbitrary Initialisation
-if A_block_size[0] <= B_block_size[1] and length_of_matrices%A_block_size[0]==0:
+if A_block_size[0] >= B_block_size[1] and length_of_matrices%A_block_size[0]==0:
     no_of_steps = length_of_matrices/A_block_size[0]
 elif length_of_matrices%B_block_size[1] == 0:
     no_of_steps = length_of_matrices/B_block_size[1]
-elif iProcs <= jProcs and length_of_matrices%iProcs == 0:
+elif iProcs >= jProcs and length_of_matrices%iProcs == 0:
     no_of_steps = length_of_matrices/iProcs
 elif length_of_matrices%jProcs == 0:
     no_of_steps = length_of_matrices/jProcs
@@ -64,6 +64,11 @@ else:
 
 A_block_size[1] = length_of_matrices/no_of_steps
 B_block_size[0] = A_block_size[1]
+
+if rank==0:
+    print A_block_size
+    print B_block_size
+    print C_block_size
 
 # basically, the time will scale linearly with the length of the matrix at this stage...
 
