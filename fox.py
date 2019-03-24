@@ -71,7 +71,6 @@ B_block_size[0] = A_block_size[1]
 A_local_row = np.zeros((A_block_size[0],length_of_matrices),dtype='d')
 
 if (rank == 0):
-    # print(A)
     for proc_id in range(nProcs):
         rank_tag = 500 + proc_id
         rowblock_to_send = proc_id//jProcs
@@ -83,117 +82,29 @@ if (rank == 0):
         j_lim = np.arange(length_of_matrices,dtype='i')
         if proc_id == 0:
             A_local_row = A[np.ix_(i_lim,j_lim)]
-            # print "At rank 0",A_local_row
         else:
-            # print A[np.ix_(i_lim,j_lim)]
-            # A = np.arange(4,8,dtype='d').reshape(2,2)
-            # print A[np.ix_(i_lim,j_lim)]
             world.Send([A[np.ix_(i_lim,j_lim)],MPI.DOUBLE],dest=proc_id, tag=rank_tag)
-            # world.Send([A[np.ix_(i_lim,j_lim)],MPI.DOUBLE],dest=proc_id, tag=rank_tag)
-            # print "To rank",proc_id,A[np.ix_(i_lim,j_lim)]
 
 if (rank != 0):
     world.Recv([A_local_row,MPI.DOUBLE],source=0,tag=(500+rank))
-    # print "At rank",rank,A_local_row
-
-# if(rank == 1):
-#     ttt = np.arange(16,dtype='d').reshape(4,4);
-#     world.Send([ttt[np.ix_(np.arange(2,4,dtype='i'),np.arange(2,dtype='i'))],MPI.DOUBLE],dest=2,tag=9898)
-#     print ttt
-#
-# if(rank == 2):
-#     tt = np.zeros((2,2),dtype='d')
-#     world.Recv([tt,MPI.DOUBLE],source=1,tag=9898)
-#     print tt
-
 
 # Sending Array B to the processors
 # First initialise a local block B for each processor
-# if (rank != 0):
-B_local_col = np.zeros((length_of_matrices,B_block_size[1]),dtype='d')
-# print("B_col",np.shape(B_local_col))
-# print(np.shape(B_local_block),rank)
-# this can be combined into the other if condition, but keeping it here for clarity
 
-# # OLD
-# if (rank == 0):
-#     # print(B)
-#     # print(np.shape(B))
-#     # # OLD
-#     # for i in range(0,jProcs): # is it iProcs or jProcs?
-#     #     for j in range(0,iProcs):
-#     #         proc_id = i*(iProcs)+j
-#     #         # print("Sending to",proc_id)
-#     #         rank_tag = 200 + proc_id # this is arbitrary
-#     #         # doubt : since the start index and end index along the j dimension (therefore i) is always fixed as 0 and C_block_size[j], maybe it's just best to initialise as that or send B only from 0 to C_block_size[0]. NO NO BIG NO
-#     #         # # OLD
-#     #         # i_start_index = (i)*C_block_size[0]
-#     #         # i_end_index = C_size[0]
-#     #         # j_start_index = (j)*C_block_size[1]
-#     #         # j_end_index = C_size[1]
-#     #         # if (i != iProcs-1):
-#     #         #     i_end_index = (i+1)*C_block_size[0]
-#     #         # if (j != jProcs-1):
-#     #         #     j_end_index = (j+1)*C_block_size[1]
-#     #         # NEW
-#     #         i_start_index = (proc_id//jProcs)*C_block_size[0]
-#     #         j_start_index = (proc_id%jProcs)*C_block_size[1]
-#     #         # print i_start_index
-#     #         # print j_start_index
-#     #         # print i_start_index+C_block_size[1]
-#     #         # print j_start_index+C_block_size[0]
-#     #         i_lim = np.arange(i_start_index,i_start_index+C_block_size[1])
-#     #         j_lim = np.arange(j_start_index,j_start_index+C_block_size[0])
-#     #         # print B[np.ix_([i_start_index,i_end_index-1],[j_start_index,j_end_index-1])]
-#     #         # print B[np.ix_(i_lim,j_lim)]
-#     #         if proc_id == 0:
-#     #             B_local_block = B[np.ix_(i_lim,j_lim)]
-#     #             # print([i_start_index,i_end_index+1],[j_start_index,j_end_index+1])
-#     #             # print B[np.ix_([i_start_index,i_end_index-1],[j_start_index,j_end_index-1])]
-#     #             # print(np.shape(B_local_block))
-#     #         else:
-#     #             world.Send([B[np.ix_(i_lim,j_lim)],MPI.DOUBLE],dest=proc_id, tag=rank_tag)
-#     #             # print('Sent B',i_start_index,'to',i_end_index,'and',j_start_index,'to',j_end_index,'towards rank',proc_id)
-#     # NEW
-#     for proc_id in range(nProcs):
-#         rowblock_to_send = rank//jProcs
-#         colblock_to_send = rank%jProcs
-#         i_start_index = rowblock_to_send*B_block_size[0]
-#         j_start_index = colblock_to_send*B_block_size[1]
-#         i_end_index = length_of_matrices
-#         if rowblock_to_send != length_of_matrices//B_block_size[0]:
-#             i_end_index = i_start_index+B_block_size[0]
-#         j_end_index = C_size[1]
-#         if colblock_to_send != C_size[1]//B_block_size[1]:
-#             j_end_index = j_start_index+B_block_size[1]
-#         i_lim = np.arange(i_start_index,i_end_index,dtype='i')
-#         j_lim = np.arange(j_start_index,j_end_index,dtype='i')
-#         if proc_id == 0:
-#             B_local_block = B[np.ix_(i_lim,j_lim)]
-#         else:
-#             world.Send([B[np.ix_(i_lim,j_lim)],MPI.DOUBLE],dest=proc_id, tag=rank_tag)
-#
-# if (rank != 0):
-#     world.Recv([B_local_block,MPI.DOUBLE],source=0,tag=(200+rank))
-#     # print(rank,'received B',B_local_block,'from',0)
-# NEW
-# print("B_block_size",B_block_size)
+B_local_col = np.zeros((length_of_matrices,B_block_size[1]),dtype='d')
+
 if (rank == 0):
     for proc_id in range(nProcs):
         rank_tag = 200 + proc_id
-        # rowblock_to_send = int(rank/jProcs);
         colblock_to_send = proc_id%jProcs
-        # print("for rank",proc_id,"sending",colblock_to_send)
         j_start_index = colblock_to_send*B_block_size[1]
         j_end_index = C_size[1]
         if(colblock_to_send != jProcs-1):
             j_end_index = j_start_index+B_block_size[1]
-        # print("rank",proc_id,"j_start",j_start_index,"j_end",j_end_index)
         j_lim = np.arange(j_start_index,j_end_index,dtype='i')
         i_lim = np.arange(length_of_matrices,dtype='i')
         if proc_id == 0:
             B_local_col = B[np.ix_(i_lim,j_lim)]
-            # print("B_col_size to be sent",np.shape(B[np.ix_(i_lim,j_lim)]))
         else:
             world.Send([B[np.ix_(i_lim,j_lim)],MPI.DOUBLE],dest=proc_id, tag=rank_tag)
             print("Sending to processor",proc_id,"col",B[np.ix_(i_lim,j_lim)])
