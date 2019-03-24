@@ -35,7 +35,7 @@ def get_procs(C_size,num):
         return (num/facts),facts
     else:
         print(facts,(num/facts))
-    return facts,(num/facts)
+        return facts,(num/facts)
 
 # def mult_block(A,B):
 #     A_size = np.shape(A)
