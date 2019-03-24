@@ -46,24 +46,31 @@ C_block_size[1] = C_size[1]/jProcs
 A_block_size[0] = C_block_size[0]
 B_block_size[1] = C_block_size[1]
 
-# By rules of matrix product, A_block_size[1] must always equal B_block_size[0]. This value can be anything! Probably must be optimised based on number of processors, length_of_matrices etc... For now, pick it to be such that at least one of the blocks are going to be square. But this is arbitrary.
+# # modified fox
+# # By rules of matrix product, A_block_size[1] must always equal B_block_size[0]. This value can be anything! Probably must be optimised based on number of processors, length_of_matrices etc... For now, pick it to be such that at least one of the blocks are going to be square. But this is arbitrary.
+#
+# no_of_steps = 1; # arbitrary Initialisation
+# if A_block_size[0] >= B_block_size[1] and length_of_matrices%A_block_size[0]==0:
+#     no_of_steps = length_of_matrices/A_block_size[0]
+# elif length_of_matrices%B_block_size[1] == 0:
+#     no_of_steps = length_of_matrices/B_block_size[1]
+# elif iProcs >= jProcs and length_of_matrices%iProcs == 0:
+#     no_of_steps = length_of_matrices/iProcs
+# elif length_of_matrices%jProcs == 0:
+#     no_of_steps = length_of_matrices/jProcs
+# elif length_of_matrices%nProcs == 0:
+#     no_of_steps = length_of_matrices/nProcs # no physical reason behind this?
+# else:
+#     no_of_steps = length_of_matrices # mostly worst case. block size is 1
 
-no_of_steps = 1; # arbitrary Initialisation
-if A_block_size[0] >= B_block_size[1] and length_of_matrices%A_block_size[0]==0:
-    no_of_steps = length_of_matrices/A_block_size[0]
-elif length_of_matrices%B_block_size[1] == 0:
-    no_of_steps = length_of_matrices/B_block_size[1]
-elif iProcs >= jProcs and length_of_matrices%iProcs == 0:
-    no_of_steps = length_of_matrices/iProcs
-elif length_of_matrices%jProcs == 0:
-    no_of_steps = length_of_matrices/jProcs
-elif length_of_matrices%nProcs == 0:
-    no_of_steps = length_of_matrices/nProcs # no physical reason behind this?
-else:
-    no_of_steps = length_of_matrices # mostly worst case. block size is 1
+if length_of_matrices%iProcs != 0:
+    print("Fox Algorithm not applicable!")
+    exit(1)
 
-A_block_size[1] = length_of_matrices/no_of_steps
-B_block_size[0] = A_block_size[1]
+B_block_size[0] = length_of_matrices/iProcs
+A_block_size[1] = B_block_size[0]
+
+no_of_steps = length_of_matrices/A_block_size[1]
 
 if rank==0:
     print A_block_size
