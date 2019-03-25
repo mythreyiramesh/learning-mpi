@@ -1,7 +1,7 @@
 import numpy as np
 from math import sqrt,floor
 
-def init_input_matrices(size1,size2,low=0,up=0):
+def init_input_matrices(size1,size2,low=0,up=1):
     A = (np.random.rand(size1[0],size1[1])*(up-low)) + low;
     B = (np.random.rand(size2[0],size2[1])*(up-low)) + low;
     return A,B

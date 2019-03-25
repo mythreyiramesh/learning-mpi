@@ -5,7 +5,7 @@
 from mpi4py import MPI
 import numpy as np
 from math import floor
-from funcs import *
+from help_funcs import *
 
 world = MPI.COMM_WORLD
 rank = world.Get_rank()
@@ -17,7 +17,7 @@ C_block_size = np.array([0, 0],dtype='i') # something arbitrary
 length_of_matrices = np.array([1],dtype='i'); # something arbitrary
 
 if (rank == 0):
-    [A,B] = init_input_matrices([10,10],[10,10])
+    [A,B] = init_input_matrices([5000,5000],[5000,5000])
     # print A
     # print B
     A_size = np.shape(A);
