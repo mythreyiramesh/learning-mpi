@@ -2,6 +2,7 @@ from mpi4py import MPI
 import numpy as np
 from temp1d_funcs import *
 import matplotlib.pyplot as plt
+import time as t
 
 world = MPI.COMM_WORLD
 rank = world.Get_rank()
@@ -11,6 +12,9 @@ global_grid_size = None; # arbitrary initialisation
 
 if rank == 0:
     T = T_init(10000)
+    BC_left = np.array([0],dtype='d');
+    BC_right = np.array([1],dtype='d');
+    time_taken = 0;
     col = 1
     clear_output_file()
     col = write_to_file_1d(T,col)
@@ -45,28 +49,32 @@ else:
 def get_boundary_vals(rank,nProcs,T_local_prev):
     bound_left = np.array([0],dtype='d')
     bound_right = np.array([0],dtype='d')
-    # FIRST ATTEMPT
-    # if rank == 0:
-    #     bounds[0] = T_local_prev[0]
-    #     next_proc =
-    # elif rank == nProcs - 1:
-    #     bounds[1] = T_local_prev[-1]
-    # MAKE IT PBC
     # left_bounds = 200's, right_bounds = 300's
     left_proc = (rank-1)%nProcs
     right_proc = (rank+1)%nProcs
-    left_recv_tag = 200 + rank
-    right_recv_tag = 300 + rank
-    left_send_tag = 300 + left_proc
-    right_send_tag = 200 + right_proc
+    if rank != 0:
+        left_recv_tag = 200 + rank
+        left_send_tag = 300 + left_proc
+    if rank != nProcs-1:
+        right_recv_tag = 300 + rank
+        right_send_tag = 200 + right_proc
 
     # print("At rank",rank,"sending left value to",left_proc,"with tag",left_send_tag)
-    world.Send([T_local_prev[0],MPI.DOUBLE],dest=left_proc,tag=left_send_tag)
-    world.Send([T_local_prev[-1],MPI.DOUBLE],dest=right_proc,tag=right_send_tag)
+    if rank != 0:
+        world.Send([T_local_prev[0],MPI.DOUBLE],dest=left_proc,tag=left_send_tag)
+    if rank != nProcs-1:
+        world.Send([T_local_prev[-1],MPI.DOUBLE],dest=right_proc,tag=right_send_tag)
     # print("At rank",rank,"receiving from",left_proc,"with tag",left_recv_tag)
-    world.Recv(bound_left,source=left_proc,tag=left_recv_tag)
-    world.Recv(bound_right,source=right_proc,tag=right_recv_tag)
+    if rank != 0:
+        world.Recv(bound_left,source=left_proc,tag=left_recv_tag)
+    else:
+        bound_left = BC_left;
+        world.Send([BC_right,MPI.DOUBLE],dest=nProcs-1,tag=23)
 
+    if rank != nProcs-1:
+        world.Recv(bound_right,source=right_proc,tag=right_recv_tag)
+    else:
+        world.Recv(bound_right,source=0,tag=23)
     return np.array([bound_left,bound_right],dtype='d')
 
 # if rank == 0:
@@ -76,12 +84,18 @@ def get_boundary_vals(rank,nProcs,T_local_prev):
 total_steps = 100;
 # first let it perform calculations for all the inside nodes, this is independent of the processor.
 for step in range(total_steps):
+    if rank == 0:
+        t1 = t.time()
     boundaries = get_boundary_vals(rank,nProcs,T_local_prev)
     T_local_curr[0] = 0.5*(boundaries[0]+T_local_prev[1])
-    for i in range(1,local_grid_size-1):
-        T_local_curr[i] = 0.5*(T_local_prev[i-1] + T_local_prev[i+1])
+    # for i in range(1,local_grid_size-1):
+    #     T_local_curr[i] = 0.5*(T_local_prev[i-1] + T_local_prev[i+1])
+    T_local_curr[1:-1] = 0.5*(T_local_prev[:-2]+T_local_prev[2:])
     T_local_curr[-1] = 0.5*(boundaries[1]+T_local_prev[-2])
     T_local_prev = T_local_curr
+    if rank == 0:
+        t2 = t.time()
+        time_taken = time_taken + t2 - t1
     if step%10 == 0:
         if rank != 0:
             world.Send([T_local_prev,MPI.DOUBLE],dest=0,tag=step+rank)
@@ -102,4 +116,6 @@ for step in range(total_steps):
 
 # plt.plot(T_local_curr)
 # plt.show()
+if rank == 0:
+    print("time taken:",time_taken)
 print("Done",rank)

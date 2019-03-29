@@ -9,7 +9,7 @@ def T_init(size):
 def write_to_file_1d(T,step):
     size = np.shape(T)[0]
     line = "T(" + str(step) +",:) = ["
-    for i in range(size):
+    for i in range(1,size,100):
         line = line + str(float(T[i])) + " "
     line = line + "];\n"
     f = file("Tout.m","a")
