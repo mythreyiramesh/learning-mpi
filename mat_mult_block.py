@@ -17,12 +17,12 @@ sizeB = [0, 0]
 # Global Initialisation
 if (rank==0):
     # init_matrices is defined such that it takes two arrays for size of A and B respectively and two more arguments for lowest and highest random number to be generated. Default for low is 0 and high is 1
-    sizeA = [16,10]
-    sizeB = [10,16]
+    sizeA = [200,500]
+    sizeB = [500,800]
     A,B = init_matrices(sizeA,sizeB)
     C = np.zeros((sizeA[0],sizeB[1]),dtype='d')
     iProcs,jProcs = factor_procs(nProcs,sizeA,sizeB)
-    # print(iProcs,jProcs)
+    print(iProcs,jProcs)
 
 # Communication of the decomposition
 sizeA = world.bcast(sizeA,root=0)
@@ -50,8 +50,8 @@ local_C_block = np.zeros((blockSize[0],blockSize[1]),dtype='d')
 if (rank==0):
     i_indices = np.linspace(0,sizeC[0],iProcs+1)
     j_indices = np.linspace(0,sizeC[1],jProcs+1)
-    print(i_indices)
-    print(j_indices)
+    # print(i_indices)
+    # print(j_indices)
 
     for i_proc in range(0,iProcs):
         for j_proc in range(0,jProcs):
@@ -59,11 +59,14 @@ if (rank==0):
             if proc_id == 0:
                 local_A_rows = A[i_indices[i_proc]:i_indices[i_proc+1],:]
                 local_B_cols = B[:,j_indices[j_proc]:j_indices[j_proc+1]]
+                # print(local_B_cols)
             else:
                 send_tag_A = 100+proc_id
                 send_tag_B = 200+proc_id
                 world.Send([A[i_indices[i_proc]:i_indices[i_proc+1],:],MPI.DOUBLE],dest=proc_id,tag=send_tag_A)
-                world.Send([B[:,j_indices[j_proc]:j_indices[j_proc+1]],MPI.DOUBLE],dest=proc_id,tag=send_tag_B)
+                # print(B)
+                # print(B[:,j_indices[j_proc]:j_indices[j_proc+1]])
+                world.Send([np.ascontiguousarray(B[:,j_indices[j_proc]:j_indices[j_proc+1]]),MPI.DOUBLE],dest=proc_id,tag=send_tag_B)
 else:
     world.Recv(local_A_rows,source=0,tag=100+rank)
     world.Recv(local_B_cols,source=0,tag=200+rank)
