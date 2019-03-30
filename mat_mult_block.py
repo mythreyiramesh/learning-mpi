@@ -1,6 +1,7 @@
 from mpi4py import MPI
 import numpy as np
 from matmult_funcs import *
+import time as t
 
 world = MPI.COMM_WORLD
 rank = world.Get_rank()
@@ -17,12 +18,13 @@ sizeB = [0, 0]
 # Global Initialisation
 if (rank==0):
     # init_matrices is defined such that it takes two arrays for size of A and B respectively and two more arguments for lowest and highest random number to be generated. Default for low is 0 and high is 1
-    sizeA = [200,500]
-    sizeB = [500,800]
+    sizeA = [10000,5000]
+    sizeB = [5000,10000]
     A,B = init_matrices(sizeA,sizeB)
     C = np.zeros((sizeA[0],sizeB[1]),dtype='d')
     iProcs,jProcs = factor_procs(nProcs,sizeA,sizeB)
-    print(iProcs,jProcs)
+    # print(iProcs,jProcs)
+    time_taken = 0
 
 # Communication of the decomposition
 sizeA = world.bcast(sizeA,root=0)
@@ -31,6 +33,8 @@ iProcs = world.bcast(iProcs,root=0)
 jProcs = world.bcast(jProcs,root=0)
 
 # print(sizeA,sizeB,iProcs,jProcs,rank)
+if (rank==0):
+    t1 = t.time()
 
 # Local Initialisation
 sizeC = [sizeA[0],sizeB[1]] # not necessary, but present for clarity
@@ -94,7 +98,7 @@ local_C_block = np.dot(local_A_rows,local_B_cols)
 # C_J = J*sizeC[1] to (J+1)*sizeC[1]
 # proc_grid_i = int(rank/jProcs)
 # proc_grid_j = rank%jProcs
-# proc_grid_id = proc_grid_i*jProcs+proc_grid_j this is rank!
+# proc_grid_id = proc_grid_i*jProcs+proc_grid_j ; this is rank!
 if rank != 0:
     world.Send([local_C_block,MPI.DOUBLE],dest=0,tag=300+rank)
 else:
@@ -107,11 +111,17 @@ else:
                 world.Recv(local_C_block,source=proc_id,tag=recv_tag_C)
                 C[i_proc*blockSize[0]:(i_proc+1)*blockSize[0],j_proc*blockSize[1]:(j_proc+1)*blockSize[1]] = local_C_block
     # print(C)
+if rank == 0:
+    t2 = t.time()
+    time_taken = t2-t1
 
 if rank == 0:
     C_act = np.dot(A,B)
     # print(C_act,"actual")
-    print(np.amax(np.abs(C-C_act)))
-print("Done",rank)
+    # print(np.amax(np.abs(C-C_act)))
+
+if rank == 0:
+    print(time_taken,"secs in",nProcs,"processors.")
+# print("Done",rank)
 
 # Future: Add compatibility for non-equal last bits to incorporate 3 processors, say
