@@ -18,13 +18,13 @@ sizeB = [0, 0]
 # Global Initialisation
 if (rank==0):
     # init_matrices is defined such that it takes two arrays for size of A and B respectively and two more arguments for lowest and highest random number to be generated. Default for low is 0 and high is 1
-    sizeA = [10000,5000]
-    sizeB = [5000,10000]
+    sizeA = [250,100]
+    sizeB = [100,150]
     A,B = init_matrices(sizeA,sizeB)
     C = np.zeros((sizeA[0],sizeB[1]),dtype='d')
     iProcs,jProcs = factor_procs(nProcs,sizeA,sizeB)
     # print(iProcs,jProcs)
-    time_taken = 0
+    # time_taken = 0
 
 # Communication of the decomposition
 sizeA = world.bcast(sizeA,root=0)
@@ -86,7 +86,15 @@ else:
 # print(local_B_cols,rank)
 
 # Calculation
-local_C_block = np.dot(local_A_rows,local_B_cols)
+
+# # using numpy
+# local_C_block = np.dot(local_A_rows,local_B_cols)
+
+# conventional loops
+for i in range(blockSize[0]):
+    for j in range(blockSize[1]):
+        for k in range(blockLength):
+            local_C_block[i][j] = local_C_block[i][j] + local_A_rows[i][k]*local_B_cols[k][j]
 
 # Communication to master
 
@@ -118,7 +126,7 @@ if rank == 0:
 if rank == 0:
     C_act = np.dot(A,B)
     # print(C_act,"actual")
-    # print(np.amax(np.abs(C-C_act)))
+    print(np.amax(np.abs(C-C_act)))
 
 if rank == 0:
     print(time_taken,"secs in",nProcs,"processors.")
