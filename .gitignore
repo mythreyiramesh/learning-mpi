@@ -7,3 +7,4 @@ hello*
 outs.txt
 .DS_Store
 .python-version
+*.m
