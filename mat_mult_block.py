@@ -17,9 +17,10 @@ sizeB = [0, 0]
 # Global Initialisation
 if (rank==0):
     # init_matrices is defined such that it takes two arrays for size of A and B respectively and two more arguments for lowest and highest random number to be generated. Default for low is 0 and high is 1
-    sizeA = [8,5]
-    sizeB = [5,2]
+    sizeA = [16,10]
+    sizeB = [10,16]
     A,B = init_matrices(sizeA,sizeB)
+    C = np.zeros((sizeA[0],sizeB[1]),dtype='d')
     iProcs,jProcs = factor_procs(nProcs,sizeA,sizeB)
     # print(iProcs,jProcs)
 
@@ -70,15 +71,44 @@ else:
 # if rank == 0:
 #     print(A)
 # else:
-#     print(local_A_rows,rank)
+# print(local_A_rows,rank)
 #
 # if rank == 0:
 #     print(B)
 # else:
-#     print(local_B_cols,rank)
+# print(local_B_cols,rank)
 
 # Calculation
+local_C_block = np.dot(local_A_rows,local_B_cols)
 
 # Communication to master
 
+# Each processor with rank "rank" is actually I,J th processor in the processor grid
+# I = int(rank/jProcs)
+# J = rank%jProcs
+# Processor (I,J) will communicate block (I,J) to master. The start and end indices are given as
+# C_I = I*sizeC[0] to (I+1)*sizeC[0]
+# C_J = J*sizeC[1] to (J+1)*sizeC[1]
+# proc_grid_i = int(rank/jProcs)
+# proc_grid_j = rank%jProcs
+# proc_grid_id = proc_grid_i*jProcs+proc_grid_j this is rank!
+if rank != 0:
+    world.Send([local_C_block,MPI.DOUBLE],dest=0,tag=300+rank)
+else:
+    C[rank*blockSize[0]:(rank+1)*blockSize[0],rank*blockSize[1]:(rank+1)*blockSize[1]] = local_C_block
+    for i_proc in range(0,iProcs):
+        for j_proc in range(0,jProcs):
+            proc_id = i_proc * jProcs + j_proc
+            if proc_id != 0:
+                recv_tag_C = 300 + proc_id
+                world.Recv(local_C_block,source=proc_id,tag=recv_tag_C)
+                C[i_proc*blockSize[0]:(i_proc+1)*blockSize[0],j_proc*blockSize[1]:(j_proc+1)*blockSize[1]] = local_C_block
+    # print(C)
+
+if rank == 0:
+    C_act = np.dot(A,B)
+    # print(C_act,"actual")
+    print(np.amax(np.abs(C-C_act)))
 print("Done",rank)
+
+# Future: Add compatibility for non-equal last bits to incorporate 3 processors, say
