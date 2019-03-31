@@ -9,6 +9,10 @@ rank = world.Get_rank()
 nProcs = world.Get_size()
 
 global_grid_size = None; # arbitrary initialisation
+tolerance = 10**(-4) # tolerance
+
+global_error = np.array([10**5],dtype='d'); # arbitrary large number
+local_error = np.array([10**5],dtype='d'); # arbitrary large number
 
 if rank == 0:
     T = T_init(10000)
@@ -81,18 +85,29 @@ def get_boundary_vals(rank,nProcs,T_local_prev):
 #     print(T_local_curr)
 # plt.plot(T_local_prev)
 
-total_steps = 100;
+# total_steps = 100;
 # first let it perform calculations for all the inside nodes, this is independent of the processor.
-for step in range(total_steps):
+step = 1
+while (global_error[0]>tolerance):
     if rank == 0:
         t1 = t.time()
     boundaries = get_boundary_vals(rank,nProcs,T_local_prev)
+    # print(T_local_curr,"curr before",step,rank)
+    # print(T_local_prev,"prev before",step,rank)
+    # print(T_local_curr is T_local_prev)
     T_local_curr[0] = 0.5*(boundaries[0]+T_local_prev[1])
+    # print(T_local_curr is T_local_prev)
     # for i in range(1,local_grid_size-1):
     #     T_local_curr[i] = 0.5*(T_local_prev[i-1] + T_local_prev[i+1])
     T_local_curr[1:-1] = 0.5*(T_local_prev[:-2]+T_local_prev[2:])
+    # print(T_local_curr is T_local_prev)
     T_local_curr[-1] = 0.5*(boundaries[1]+T_local_prev[-2])
-    T_local_prev = T_local_curr
+    # print(T_local_curr is T_local_prev)
+    # print(T_local_prev,"prev after",step,rank)
+    # print(T_local_curr,"curr after",step,rank)
+    # print(np.amax(np.abs(T_local_curr-T_local_prev)),rank)
+    local_error[0] = np.amax(np.abs(T_local_curr-T_local_prev))
+    T_local_prev = np.copy(T_local_curr)
     if rank == 0:
         t2 = t.time()
         time_taken = time_taken + t2 - t1
@@ -109,6 +124,9 @@ for step in range(total_steps):
                 else:
                     world.Recv(T_curr[start_index:end_index],source=proc_id,tag=step+proc_id)
             col = write_to_file_1d(T_curr,col)
+    # print("local",local_error,"global",global_error,"rank",rank)
+    world.Allreduce(local_error,global_error,op=MPI.MAX)
+    step = step + 1
     # if rank == 0:
     #     print T_local_prev
 
@@ -118,4 +136,6 @@ for step in range(total_steps):
 # plt.show()
 if rank == 0:
     print("time taken:",time_taken)
-print("Done",rank)
+    print("steps:",step)
+    print("global error",global_error[0])
+# print("Done",rank)
