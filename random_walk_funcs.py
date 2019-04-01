@@ -1,5 +1,4 @@
 import numpy as np
-# from math import floor
 
 def domain_initialisation(no_of_particles,domain_size,domain_start):
     relative_positions = np.floor(domain_size*np.random.rand(no_of_particles))
