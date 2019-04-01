@@ -25,12 +25,14 @@ local_domain_length = total_domain_length/nProcs
 domain_start = (rank%nProcs) * local_domain_length
 
 # Definiting initial particle size for each processor
-total_no_of_particles = 12
+total_no_of_particles = 100
 if total_no_of_particles%nProcs != 0:
     print "Particles not evenly divisible, please change!"
     exit(1)
 
-local_no_of_particles = total_no_of_particles/nProcs
+local_no_of_particles = np.array([total_no_of_particles/nProcs],dtype='i')
+if (rank == 0):
+    particles_in_each_proc = np.zeros(nProcs,dtype='i')
 
 list_of_locations = domain_initialisation(local_no_of_particles,local_domain_length,domain_start)
 particleList = []
@@ -106,6 +108,17 @@ def receive_left(particles,step):
         particles.append(recv_particle)
     return particles
 
+def communicate_to_master(step):
+    # Let this channel be 10000+(step*100)+rank
+    if (rank != 0):
+        world.Send(local_no_of_particles,dest=0,tag=(10000+(step*100)+rank))
+    else:
+        particles_in_each_proc[0] = local_no_of_particles
+        for proc_id in range(1,nProcs):
+            recv_no = np.array([0],dtype='i')
+            world.Recv(recv_no,source=proc_id,tag=((10000+(step*100)+proc_id)))
+            particles_in_each_proc[proc_id] = recv_no
+
 # starting random walk
 def get_new_location():
     upper_limit = np.floor(local_domain_length/2)
@@ -120,7 +133,7 @@ def check_new_location(location):
     else:
         return 0
 
-total_no_of_iterations = 2
+total_no_of_iterations = 1000
 
 for iter_no in range(total_no_of_iterations):
     particlesLeft = []
@@ -142,9 +155,14 @@ for iter_no in range(total_no_of_iterations):
         particleList = deleteParticle(particlesLeft[i].pID,particleList)
     for i in range(len(particlesRight)):
         particleList = deleteParticle(particlesRight[i].pID,particleList)
-    # print("Length of particleList after iteration",iter_no,"in processor",rank,"is",len(particleList))
+    # print("Length of particleList after iteration",iter_no,"in processor",rank,"is",local_no_of_particles)
+    # Let this channel be 10000+(step*100)+rank
+    local_no_of_particles = np.array([len(particleList)],dtype='i')
+    communicate_to_master(iter_no)
+    # if (rank==0):
+    #     print iter_no,particles_in_each_proc,sum(particles_in_each_proc)
 
-print "Done",rank
+# print "Done",rank
 # if (rank==0):
 #     part0 = Particle(0,5)
 #     print("before",rank,part0)
