@@ -9,13 +9,13 @@ rank = world.Get_rank()
 nProcs = world.Get_size()
 
 global_grid_size = None; # arbitrary initialisation
-tolerance = 10**(-4) # tolerance
+tolerance = 10**(-2) # tolerance
 
 global_error = np.array([10**5],dtype='d'); # arbitrary large number
 local_error = np.array([10**5],dtype='d'); # arbitrary large number
 
 if rank == 0:
-    T = T_init(10000)
+    T = T_init(36)
     BC_left = np.array([0],dtype='d');
     BC_right = np.array([1],dtype='d');
     time_taken = 0;
@@ -28,10 +28,10 @@ if rank == 0:
         exit(1)
 
 global_grid_size = world.bcast(global_grid_size,root=0)
-# print(grid_size,rank)
+print("global",global_grid_size,rank)
 
 local_grid_size = global_grid_size/nProcs
-
+print("local",local_grid_size,rank)
 # we are decomposing the domain to nProcs
 T_local_prev = np.zeros(local_grid_size,dtype='d');
 T_local_curr = np.zeros(local_grid_size,dtype='d');
@@ -89,6 +89,7 @@ def get_boundary_vals(rank,nProcs,T_local_prev):
 # first let it perform calculations for all the inside nodes, this is independent of the processor.
 step = 1
 while (global_error[0]>tolerance):
+    print("step",step,rank)
     if rank == 0:
         t1 = t.time()
     boundaries = get_boundary_vals(rank,nProcs,T_local_prev)
@@ -106,26 +107,29 @@ while (global_error[0]>tolerance):
     # print(T_local_prev,"prev after",step,rank)
     # print(T_local_curr,"curr after",step,rank)
     # print(np.amax(np.abs(T_local_curr-T_local_prev)),rank)
-    local_error[0] = np.amax(np.abs(T_local_curr-T_local_prev))
+    local_error[0] = np.sum(np.power(np.abs(T_local_curr-T_local_prev),2))
     T_local_prev = np.copy(T_local_curr)
     if rank == 0:
         t2 = t.time()
         time_taken = time_taken + t2 - t1
     if step%10 == 0:
-        if rank != 0:
-            world.Send([T_local_prev,MPI.DOUBLE],dest=0,tag=step+rank)
-        else:
-            T_curr = np.zeros(global_grid_size,dtype='d')
-            for proc_id in range(nProcs):
-                start_index = (proc_id)*local_grid_size
-                end_index = start_index+local_grid_size
-                if proc_id == 0:
-                    T_curr[start_index:end_index] = T_local_curr
-                else:
-                    world.Recv(T_curr[start_index:end_index],source=proc_id,tag=step+proc_id)
+        T_curr = np.zeros(global_grid_size,dtype='d')
+        # if rank != 0:
+        #     world.Send([T_local_prev,MPI.DOUBLE],dest=0,tag=(100*step)+rank)
+        # else:
+        #     T_curr = np.zeros(global_grid_size,dtype='d')
+        #     for proc_id in range(nProcs):
+        #         start_index = (proc_id)*local_grid_size
+        #         end_index = start_index+local_grid_size
+        #         if proc_id == 0:
+        #             T_curr[start_index:end_index] = T_local_curr
+        #         else:
+        #             world.Recv(T_curr[start_index:end_index],source=proc_id,tag=(100*step)+proc_id)
+        world.Gather(T_local_prev,T_curr,root=0)
             col = write_to_file_1d(T_curr,col)
     # print("local",local_error,"global",global_error,"rank",rank)
     world.Allreduce(local_error,global_error,op=MPI.MAX)
+    print(global_error,rank)
     step = step + 1
     # if rank == 0:
     #     print T_local_prev
