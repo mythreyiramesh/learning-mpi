@@ -10,9 +10,10 @@ def T_init(size):
 
 def T_2Dinit(size):
     # let the starting temperature profile be a sin curve
-    # x_grid = np.arange(size,dtype='d')
-    # T = np.sin(x_grid)
-    T = (np.random.rand(size[0],size[1]))
+    x_grid = np.arange(size[0],dtype='d')
+    y_grid = np.arange(size[1],dtype='d')
+    
+    # T = (np.random.rand(size[0],size[1]))
     return T
 
 def write_to_file_1d(T,step):

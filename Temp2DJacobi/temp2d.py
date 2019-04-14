@@ -19,7 +19,7 @@ local_error = np.array([10**5],dtype='d'); # arbitrary large number
 
 if rank == 0:
     domain_width = 100
-    domain_height = 50
+    domain_height = 100
     T = T_2Dinit([domain_height,domain_width])
     BC_left = np.zeros((domain_height,1),dtype='d');
     BC_right = np.zeros((domain_height,1),dtype='d');
@@ -30,9 +30,9 @@ if rank == 0:
     clear_output_file()
     layer = write_to_file_2d(T,layer)
     global_grid_size = np.shape(T);
-    print(global_grid_size)
+    # print(global_grid_size)
     iProcs,jProcs = factor_procs(nProcs,global_grid_size)
-    print(iProcs,jProcs)
+    # print(iProcs,jProcs)
     # print(type(jProcs))
     local_grid_size = np.array([int(global_grid_size[0]/iProcs),int(global_grid_size[1]/jProcs)],dtype='i')
 
@@ -129,20 +129,20 @@ def communicate_horizontal_BC_from_master(rank,nProcs,jProcs,local_grid_size):
         for proc_id in range(1,nProcs):
             if proc_id%jProcs == jProcs-1:
                 world.Send([BC_right,MPI.DOUBLE],dest=proc_id,tag=450+proc_id)
-                print("sent right to",proc_id)
+                # print("sent right to",proc_id)
             if proc_id%jProcs == 0:
                 world.Send([BC_left,MPI.DOUBLE],dest=proc_id,tag=350+proc_id)
-                print("sent left to",proc_id)
+                # print("sent left to",proc_id)
     else:
         # print(type(rank),type(jProcs))
         if rank%jProcs == jProcs-1:
             BC_right = np.zeros((global_grid_size[0],1),dtype='d')
             world.Recv(BC_right,source=0,tag=450+rank)
-            print("receiving right at",rank)
+            # print("receiving right at",rank)
         if rank%jProcs == 0:
             BC_left = np.zeros((global_grid_size[0],1),dtype='d')
             world.Recv(BC_left,source=0,tag=350+rank)
-            print("receiving left at",rank)
+            # print("receiving left at",rank)
     return
 
 def communicate_vertical_BC_from_master(rank,nProcs,jProcs,local_grid_size):
@@ -155,21 +155,21 @@ def communicate_vertical_BC_from_master(rank,nProcs,jProcs,local_grid_size):
         for proc_id in range(1,nProcs):
             if int(proc_id/jProcs) == iProcs-1:
                 world.Send([BC_bottom,MPI.DOUBLE],dest=proc_id,tag=650+proc_id)
-                print("sent bottom to",proc_id,np.shape(BC_top))
+                # print("sent bottom to",proc_id,np.shape(BC_top))
             if int(proc_id/jProcs) == 0:
                 world.Send([BC_top,MPI.DOUBLE],dest=proc_id,tag=550+proc_id)
-                print("sent top to",proc_id,np.shape(BC_top))
+                # print("sent top to",proc_id,np.shape(BC_top))
     else:
         # print(type(rank),type(jProcs))
         if int(rank/jProcs) == iProcs-1:
             BC_bottom = np.zeros((1,global_grid_size[1]),dtype='d')
             world.Recv(BC_bottom,source=0,tag=650+rank)
-            print("receiving bottom at",rank)
+            # print("receiving bottom at",rank)
         if int(rank/jProcs) == 0:
             BC_top = np.zeros((1,global_grid_size[1]),dtype='d')
             # print("receiving at",rank,np.shape(BC_top))
             world.Recv(BC_top,source=0,tag=550+rank)
-            print("receiving top at",rank)
+            # print("receiving top at",rank)
     return
 
 def get_horizontal_boundary_vals(rank,jProcs,T_local_prev):
